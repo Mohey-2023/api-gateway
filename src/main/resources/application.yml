@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: apigateway
+  profiles:
+    active: local
+  config:
+    import: optional:configserver:http://127.0.0.1:8888/
