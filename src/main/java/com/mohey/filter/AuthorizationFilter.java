@@ -1,5 +1,6 @@
 package com.mohey.filter;
 
+import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -31,6 +32,9 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
 
             String jwt = authorizationHeader.replace("Bearer", "");
 
+
+
+
             if (!isJwtValid(jwt)) {
 
             }
@@ -40,7 +44,21 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     }
 
     private boolean isJwtValid(String jwt) {
-        return false;
+        String subject;
+
+        try {
+            subject = Jwts.parser().setSigningKey(env.getProperty("jwt.secret"))
+                    .parseClaimsJws(jwt).getBody()
+                    .getSubject();
+        }catch (Exception e){
+            return false;
+        }
+
+        if (subject == null || subject.isEmpty()) {
+            return false;
+        }
+
+        return true;
     }
 
     public static class Config {
