@@ -42,7 +42,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
             Claims jwtClaims = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
 
             if (!isJwtExpired(jwtClaims)) {
-                
+                return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
             }
 
 
@@ -57,6 +57,16 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(httpStatus);
+
+        return response.setComplete();
+    }
+
+    private Mono<Void> onTokenExpired(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(httpStatus);
+
+        //auth쪽 토큰 재발급 url로 수정 필요
+        response.getHeaders().add("WWW-Authenticate", "Bearer error=\"token_expired\", error_description=\"" + err + "\", error_uri=\"auth쪽 토큰 재발급 url\"");
 
         return response.setComplete();
     }
