@@ -1,5 +1,7 @@
 package com.mohey.filter;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -8,6 +10,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+
+import java.util.Date;
 
 @Component
 public class AuthorizationFilter extends AbstractGatewayFilterFactory<AuthorizationFilter.Config> {
@@ -32,7 +36,9 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
 
             String jwt = authorizationHeader.replace("Bearer", "");
 
-
+            if (!isJwtExpired(jwt)) {
+                
+            }
 
 
             if (!isJwtValid(jwt)) {
@@ -41,6 +47,24 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
 
             return chain.filter(exchange);
         }));
+    }
+
+    private boolean isJwtExpired(String jwt) {
+        try {
+            Jws<Claims> claimsJws = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt);
+            Claims claims = claimsJws.getBody();
+
+            Date expirationDate = claims.getExpiration();
+            if (expirationDate == null) {
+                return false;
+            }
+
+            Date now = new Date();
+            return now.after(expirationDate);
+
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     private boolean isJwtValid(String jwt) {
