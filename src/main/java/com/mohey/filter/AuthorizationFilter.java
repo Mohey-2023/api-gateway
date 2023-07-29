@@ -1,15 +1,18 @@
 package com.mohey.filter;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 import java.util.Date;
 
@@ -36,25 +39,33 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
 
             String jwt = authorizationHeader.replace("Bearer", "");
 
-            if (!isJwtExpired(jwt)) {
+            Claims jwtClaims = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
+
+            if (!isJwtExpired(jwtClaims)) {
                 
             }
 
 
-            if (!isJwtValid(jwt)) {
-
+            if (!isJwtValid(jwtClaims)) {
+                return onError(exchange,"JWT token is not valid", HttpStatus.UNAUTHORIZED);
             }
 
             return chain.filter(exchange);
         }));
     }
 
-    private boolean isJwtExpired(String jwt) {
-        try {
-            Jws<Claims> claimsJws = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt);
-            Claims claims = claimsJws.getBody();
+    private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(httpStatus);
 
-            Date expirationDate = claims.getExpiration();
+        return response.setComplete();
+    }
+
+
+    private boolean isJwtExpired(Claims jwtClaims) {
+        try {
+
+            Date expirationDate = jwtClaims.getExpiration();
             if (expirationDate == null) {
                 return false;
             }
@@ -67,13 +78,11 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
         }
     }
 
-    private boolean isJwtValid(String jwt) {
+    private boolean isJwtValid(Claims jwtClaims) {
         String subject;
 
         try {
-            subject = Jwts.parser().setSigningKey(env.getProperty("jwt.secret"))
-                    .parseClaimsJws(jwt).getBody()
-                    .getSubject();
+            subject = jwtClaims.getSubject();
         }catch (Exception e){
             return false;
         }
