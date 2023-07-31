@@ -1,11 +1,15 @@
 package com.mohey.filter;
 
+import com.fasterxml.jackson.core.ObjectCodec;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -14,12 +18,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
 public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<GroupHostAuthorizationFilter.Config> {
     Environment env;
-
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public GatewayFilter apply(GroupHostAuthorizationFilter.Config config) {
@@ -29,7 +34,7 @@ public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<G
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
             }
-
+            Mono<String> memberUuid = extractMemberUuid(request);
 
             String authorizationHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
 
@@ -102,6 +107,22 @@ public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<G
 
     public static class Config {
     }
-
+    public static Mono<String> extractMemberUuid(ServerHttpRequest request) {
+        return DataBufferUtils.join(request.getBody())
+                .map(dataBuffer -> {
+                    byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                    dataBuffer.read(bytes);
+                    DataBufferUtils.release(dataBuffer);
+                    return new String(bytes, StandardCharsets.UTF_8);
+                })
+                .flatMap(jsonString -> {
+                    try {
+                        JsonNode jsonNode = objectMapper.readTree(jsonString);
+                        return Mono.justOrEmpty(jsonNode.get("memberuuid").asText());
+                    } catch (Exception e) {
+                        return Mono.error(e);
+                    }
+                });
+    }
 
 }
