@@ -34,24 +34,24 @@ public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<G
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
             }
-            Mono<String> memberUuid = extractMemberUuid(request);
+            return extractMemberUuid(request)
+                    .flatMap(memberUuid -> {
+                        String authorizationHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
+                        String jwt = authorizationHeader.replace("Bearer", "");
+                        Claims jwtClaims = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
 
-            String authorizationHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
+                        if (!isJwtExpired(jwtClaims)) {
+                            return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
+                        }
 
-            String jwt = authorizationHeader.replace("Bearer", "");
+                        if (!isJwtValid(jwtClaims, memberUuid)) {
+                            return onError(exchange, "JWT token is not valid", HttpStatus.UNAUTHORIZED);
+                        }
 
-            Claims jwtClaims = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
-
-            if (!isJwtExpired(jwtClaims)) {
-                return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
-            }
-
-
-            if (!isJwtValid(jwtClaims)) {
-                return onError(exchange,"JWT token is not valid", HttpStatus.UNAUTHORIZED);
-            }
-
-            return chain.filter(exchange);
+                        return chain.filter(exchange);
+                    })
+                    .switchIfEmpty(Mono.defer(() -> onError(exchange, "Member UUID is empty", HttpStatus.UNAUTHORIZED)))
+                    .onErrorResume(e -> onError(exchange, "Error extracting Member UUID", HttpStatus.UNAUTHORIZED));
         }));
     }
 
@@ -89,16 +89,16 @@ public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<G
         }
     }
 
-    private boolean isJwtValid(Claims jwtClaims) {
+    private boolean isJwtValid(Claims jwtClaims, String memberUuid) {
         String subject;
 
         try {
             subject = jwtClaims.getSubject();
-        }catch (Exception e){
+        } catch (Exception e) {
             return false;
         }
 
-        if (subject == null || subject.isEmpty()) {
+        if (!subject.equals(memberUuid)) {
             return false;
         }
 
@@ -107,6 +107,7 @@ public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<G
 
     public static class Config {
     }
+
     public static Mono<String> extractMemberUuid(ServerHttpRequest request) {
         return DataBufferUtils.join(request.getBody())
                 .map(dataBuffer -> {
