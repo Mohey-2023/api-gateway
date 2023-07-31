@@ -27,8 +27,10 @@ public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<G
             ServerHttpRequest request = exchange.getRequest();
 
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-
+                return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
             }
+
+
             String authorizationHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
 
             String jwt = authorizationHeader.replace("Bearer", "");
@@ -100,4 +102,6 @@ public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<G
 
     public static class Config {
     }
+
+
 }
