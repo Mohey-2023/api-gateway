@@ -17,23 +17,17 @@ import reactor.core.publisher.Mono;
 import java.util.Date;
 
 @Component
-public class AuthorizationFilter extends AbstractGatewayFilterFactory<AuthorizationFilter.Config> {
+public class GroupHostAuthorizationFilter extends AbstractGatewayFilterFactory<GroupHostAuthorizationFilter.Config> {
     Environment env;
 
-    @Autowired
-    public AuthorizationFilter(Environment env){
-        super(Config.class);
-        this.env = env;
-
-    }
 
     @Override
-    public GatewayFilter apply(Config config) {
+    public GatewayFilter apply(GroupHostAuthorizationFilter.Config config) {
         return (((exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
 
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
+
             }
             String authorizationHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
 
