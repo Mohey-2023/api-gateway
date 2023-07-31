@@ -35,11 +35,9 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
             }
-            String authorizationHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
 
-            String jwt = authorizationHeader.replace("Bearer", "");
+            Claims jwtClaims = extractJwtClaimsFromRequest(request);
 
-            Claims jwtClaims = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
 
             if (!isJwtExpired(jwtClaims)) {
                 return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
@@ -54,14 +52,19 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
         }));
     }
 
-    private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
+    protected Claims extractJwtClaimsFromRequest(ServerHttpRequest request) {
+        String jwt = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0).replace("Bearer", "");
+        return Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
+    }
+
+    protected Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(httpStatus);
 
         return response.setComplete();
     }
 
-    private Mono<Void> onTokenExpired(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
+    protected Mono<Void> onTokenExpired(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(httpStatus);
 
@@ -72,7 +75,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     }
 
 
-    private boolean isJwtExpired(Claims jwtClaims) {
+    protected boolean isJwtExpired(Claims jwtClaims) {
         try {
 
             Date expirationDate = jwtClaims.getExpiration();
@@ -88,7 +91,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
         }
     }
 
-    private boolean isJwtValid(Claims jwtClaims) {
+    protected boolean isJwtValid(Claims jwtClaims) {
         String subject;
 
         try {
