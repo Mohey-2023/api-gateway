@@ -1,4 +1,4 @@
-package com.mohey.filter;
+package com.mohey.apigateway.filter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

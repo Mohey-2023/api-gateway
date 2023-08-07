@@ -1,4 +1,4 @@
-package com.mohey.filter;
+package com.mohey.apigateway.filter;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
