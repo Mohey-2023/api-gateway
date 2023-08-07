@@ -84,7 +84,7 @@ public class GroupHostAuthorizationFilter extends AuthorizationFilter {
                 .flatMap(jsonString -> {
                     try {
                         JsonNode jsonNode = objectMapper.readTree(jsonString);
-                        return Mono.justOrEmpty(jsonNode.get("memberuuid").asText());
+                        return Mono.justOrEmpty(jsonNode.get("leaderUuid").asText());
                     } catch (Exception e) {
                         return Mono.error(e);
                     }

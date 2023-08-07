@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
@@ -60,8 +63,14 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     protected Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(httpStatus);
+        // Get the factory for data buffers
+        DataBufferFactory bufferFactory = response.bufferFactory();
 
-        return response.setComplete();
+        // Create a data buffer with the error message
+        DataBuffer buffer = bufferFactory.wrap(err.getBytes(StandardCharsets.UTF_8));
+
+        // Write the error message to the response
+        return response.writeWith(Mono.just(buffer));
     }
 
     protected Mono<Void> onTokenExpired(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
