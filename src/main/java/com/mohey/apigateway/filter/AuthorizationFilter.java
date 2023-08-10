@@ -56,11 +56,9 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
             if (allowedIps.contains(clientIp)) {
                 return chain.filter(exchange);
             }
-
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
             }
-
             Claims jwtClaims = extractJwtClaimsFromRequest(request);
 
 
@@ -115,7 +113,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
             }
 
             Date now = new Date();
-            return now.after(expirationDate);
+            return now.before(expirationDate);
 
         } catch (Exception e) {
             return true;
@@ -126,7 +124,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
         String subject;
 
         try {
-            subject = jwtClaims.getSubject();
+            subject = jwtClaims.get("memberUuid",String.class);
         }catch (Exception e){
             return false;
         }
