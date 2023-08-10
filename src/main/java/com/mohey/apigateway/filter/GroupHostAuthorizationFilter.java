@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.core.env.Environment;
@@ -17,6 +19,7 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 
 @Component
+@Slf4j
 public class GroupHostAuthorizationFilter extends AuthorizationFilter {
     Environment env;
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -36,9 +39,7 @@ public class GroupHostAuthorizationFilter extends AuthorizationFilter {
             }
             return extractMemberUuidFromRequest(request)
                     .flatMap(memberUuid -> {
-                        String authorizationHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
-                        String jwt = authorizationHeader.replace("Bearer", "");
-                        Claims jwtClaims = Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
+                        Claims jwtClaims = this.extractJwtClaimsFromRequest(request);
 
                         if (!isJwtExpired(jwtClaims)) {
                             return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
@@ -51,7 +52,10 @@ public class GroupHostAuthorizationFilter extends AuthorizationFilter {
                         return chain.filter(exchange);
                     })
                     .switchIfEmpty(Mono.defer(() -> onError(exchange, "Member UUID is empty", HttpStatus.UNAUTHORIZED)))
-                    .onErrorResume(e -> onError(exchange, "Error extracting Member UUID", HttpStatus.UNAUTHORIZED));
+                    .onErrorResume(e ->{
+                        e.printStackTrace();
+                        return onError(exchange, "Error extracting Member UUID", HttpStatus.UNAUTHORIZED);
+                    } );
         }));
     }
 
@@ -76,6 +80,7 @@ public class GroupHostAuthorizationFilter extends AuthorizationFilter {
     public static Mono<String> extractMemberUuidFromRequest(ServerHttpRequest request) {
         return DataBufferUtils.join(request.getBody())
                 .map(dataBuffer -> {
+
                     byte[] bytes = new byte[dataBuffer.readableByteCount()];
                     dataBuffer.read(bytes);
                     DataBufferUtils.release(dataBuffer);
@@ -86,6 +91,7 @@ public class GroupHostAuthorizationFilter extends AuthorizationFilter {
                         JsonNode jsonNode = objectMapper.readTree(jsonString);
                         return Mono.justOrEmpty(jsonNode.get("leaderUuid").asText());
                     } catch (Exception e) {
+                        e.printStackTrace();
                         return Mono.error(e);
                     }
                 });

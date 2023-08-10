@@ -2,7 +2,12 @@ package com.mohey.apigateway.filter;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.core.env.Environment;
@@ -17,14 +22,25 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
+import java.util.*;
 
 @Component
+@ConfigurationProperties(prefix = "my.config")
 public class AuthorizationFilter extends AbstractGatewayFilterFactory<AuthorizationFilter.Config> {
     Environment env;
 
+    public List<String> allowedIps;
+
+    public List<String> getAllowedIps() {
+        return allowedIps;
+    }
+
+    public void setAllowedIps(List<String> allowedIps) {
+        this.allowedIps = allowedIps;
+    }
+
     @Autowired
-    public AuthorizationFilter(Environment env){
+    public AuthorizationFilter(Environment env) {
         super(Config.class);
         this.env = env;
 
@@ -34,6 +50,12 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     public GatewayFilter apply(Config config) {
         return (((exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+
+            String clientIp = request.getRemoteAddress().getAddress().getHostAddress();
+
+            if (allowedIps.contains(clientIp)) {
+                return chain.filter(exchange);
+            }
 
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
@@ -57,7 +79,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
 
     protected Claims extractJwtClaimsFromRequest(ServerHttpRequest request) {
         String jwt = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0).replace("Bearer", "");
-        return Jwts.parser().setSigningKey(env.getProperty("jwt.secret")).parseClaimsJws(jwt).getBody();
+        return Jwts.parserBuilder().setSigningKey(Keys.hmacShaKeyFor(env.getProperty("jwt.secret").getBytes(StandardCharsets.UTF_8))).build().parseClaimsJws(jwt).getBody();
     }
 
     protected Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
@@ -117,5 +139,6 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     }
 
     public static class Config {
+
     }
 }
