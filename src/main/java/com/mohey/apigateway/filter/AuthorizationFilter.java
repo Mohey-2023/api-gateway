@@ -62,7 +62,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
             Claims jwtClaims = extractJwtClaimsFromRequest(request);
 
 
-            if (!isJwtExpired(jwtClaims)) {
+            if (isJwtExpired(jwtClaims)) {
                 return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
             }
 
@@ -113,7 +113,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
             }
 
             Date now = new Date();
-            return now.before(expirationDate);
+            return now.after(expirationDate);
 
         } catch (Exception e) {
             return true;

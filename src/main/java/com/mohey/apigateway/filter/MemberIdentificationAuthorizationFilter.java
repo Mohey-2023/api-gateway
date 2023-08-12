@@ -67,7 +67,7 @@ public class MemberIdentificationAuthorizationFilter extends AuthorizationFilter
             Claims jwtClaims = extractJwtClaimsFromRequest(request);
             String memberUuid = request.getHeaders().getFirst("member-uuid");
 
-            if (!isJwtExpired(jwtClaims)) {
+            if (isJwtExpired(jwtClaims)) {
                 return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
             }
 
