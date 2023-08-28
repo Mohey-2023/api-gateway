@@ -2,4 +2,4 @@ spring:
   application:
     name: apigateway
   config:
-    import: optional:configserver:http://172.17.0.6:8094/
+    import: optional:configserver:http://172.18.0.2:8094/
