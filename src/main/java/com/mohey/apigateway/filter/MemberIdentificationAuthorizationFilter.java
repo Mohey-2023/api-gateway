@@ -2,6 +2,7 @@ package com.mohey.apigateway.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -22,7 +23,7 @@ public class MemberIdentificationAuthorizationFilter extends AuthorizationFilter
     }
 
 
-//    @Override
+    //    @Override
 //    public GatewayFilter apply(GroupHostAuthorizationFilter.Config config) {
 //        return (((exchange, chain) -> {
 //            ServerHttpRequest request = exchange.getRequest();
@@ -56,7 +57,7 @@ public class MemberIdentificationAuthorizationFilter extends AuthorizationFilter
         return (((exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
 
-                String clientIp = request.getRemoteAddress().getAddress().getHostAddress();
+            String clientIp = request.getRemoteAddress().getAddress().getHostAddress();
 
             if (allowedIps.contains(clientIp)) {
                 return chain.filter(exchange);
@@ -64,16 +65,14 @@ public class MemberIdentificationAuthorizationFilter extends AuthorizationFilter
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
             }
-            Claims jwtClaims = extractJwtClaimsFromRequest(request);
-            String memberUuid = request.getHeaders().getFirst("member-uuid");
-
-            if (isJwtExpired(jwtClaims)) {
+            try {
+                Claims jwtClaims = extractJwtClaimsFromRequest(request);
+                String memberUuid = request.getHeaders().getFirst("member-uuid");
+                if (!isJwtValid(jwtClaims, memberUuid)) {
+                    return onError(exchange, "JWT token is not valid", HttpStatus.UNAUTHORIZED);
+                }
+            } catch (ExpiredJwtException e) {
                 return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
-            }
-
-
-            if (!isJwtValid(jwtClaims,memberUuid)) {
-                return onError(exchange,"JWT token is not valid", HttpStatus.UNAUTHORIZED);
             }
 
             return chain.filter(exchange);
@@ -84,7 +83,7 @@ public class MemberIdentificationAuthorizationFilter extends AuthorizationFilter
         String subject;
 
         try {
-            subject = jwtClaims.get("memberUuid",String.class);
+            subject = jwtClaims.get("memberUuid", String.class);
         } catch (Exception e) {
             return false;
         }
@@ -95,6 +94,5 @@ public class MemberIdentificationAuthorizationFilter extends AuthorizationFilter
 
         return true;
     }
-
 
 }

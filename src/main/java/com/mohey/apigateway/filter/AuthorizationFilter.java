@@ -1,6 +1,7 @@
 package com.mohey.apigateway.filter;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,23 +60,21 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
             }
-            Claims jwtClaims = extractJwtClaimsFromRequest(request);
-
-
-            if (isJwtExpired(jwtClaims)) {
+            try {
+                Claims jwtClaims = extractJwtClaimsFromRequest(request);
+                if (!isJwtValid(jwtClaims)) {
+                    return onError(exchange, "JWT token is not valid", HttpStatus.UNAUTHORIZED);
+                }
+            } catch (ExpiredJwtException e) {
                 return onTokenExpired(exchange, "JWT token has expired", HttpStatus.UNAUTHORIZED);
             }
 
-
-            if (!isJwtValid(jwtClaims)) {
-                return onError(exchange,"JWT token is not valid", HttpStatus.UNAUTHORIZED);
-            }
 
             return chain.filter(exchange);
         }));
     }
 
-    protected Claims extractJwtClaimsFromRequest(ServerHttpRequest request) {
+    protected Claims extractJwtClaimsFromRequest(ServerHttpRequest request) throws ExpiredJwtException {
         String jwt = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0).replace("Bearer", "");
         return Jwts.parserBuilder().setSigningKey(Keys.hmacShaKeyFor(env.getProperty("jwt.secret").getBytes(StandardCharsets.UTF_8))).build().parseClaimsJws(jwt).getBody();
     }
@@ -104,21 +103,21 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     }
 
 
-    protected boolean isJwtExpired(Claims jwtClaims) {
-        try {
-
-            Date expirationDate = jwtClaims.getExpiration();
-            if (expirationDate == null) {
-                return false;
-            }
-
-            Date now = new Date();
-            return now.after(expirationDate);
-
-        } catch (Exception e) {
-            return true;
-        }
-    }
+//    protected boolean isJwtExpired(Claims jwtClaims) {
+//        try {
+//
+//            Date expirationDate = jwtClaims.getExpiration();
+//            if (expirationDate == null) {
+//                return false;
+//            }
+//
+//            Date now = new Date();
+//            return now.after(expirationDate);
+//
+//        } catch (Exception e) {
+//            return true;
+//        }
+//    }
 
     protected boolean isJwtValid(Claims jwtClaims) {
         String subject;
